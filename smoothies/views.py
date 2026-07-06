@@ -1,50 +1,54 @@
+import random
+
+import requests
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
+from rest_framework.status import HTTP_200_OK
 from rest_framework.viewsets import ViewSet
-from rest_framework.mixins import ListModelMixin
-from rest_framework.viewsets import GenericViewSet
+from rest_framework.views import APIView
 
-import smoothies
-from smoothies.models import Smoothie
-
+from .models import Ingredient, Smoothie
 from .serializers import (
     SmoothieCreateSerializer,
-    SmoothieNutritionSerializer,
     SmoothieSerializer,
     SmoothieUpdateSerializer,
 )
-from .services import SmoothieService
+
+FRUITYVICE_ALL_URL = "https://www.fruityvice.com/api/fruit/all"
+
+
+class SmoothieAPIView(APIView):
+    def get(self, request):
+        total = Smoothie.objects.count()
+        draft = Smoothie.objects.filter(status="DRAFT").count()
+        published = Smoothie.objects.filter(status="PUBLISHED").count()
+
+        return Response({"total": total, "draft": draft, "published": published}, status=HTTP_200_OK)
 
 
 class SmoothieViewSet(ViewSet):
     # ================================================================= #
     # YOUR TASKS BELOW
-    # Note: You are free to change the base class of this ViewSet
-    # (e.g., to ModelViewSet, GenericViewSet with mixins) or keep
-    # using the Service layer. Choose the approach you prefer!
     # ================================================================= #
-
-    def get_service(self) -> SmoothieService:
-        return SmoothieService()
 
     @extend_schema(
         request=SmoothieCreateSerializer, responses={201: SmoothieSerializer}
     )
     def create(self, request):
-        service = self.get_service()
-        smoothie = service.create_smoothie(request.data)
+        serializer = SmoothieCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        smoothie = serializer.save()
         return Response(
             SmoothieSerializer(smoothie).data, status=status.HTTP_201_CREATED
         )
 
     @extend_schema(responses={200: SmoothieSerializer})
     def retrieve(self, request, pk=None):
-        service = self.get_service()
-        smoothie = service.get_smoothie_by_id(pk)
-        if not smoothie:
+        try:
+            smoothie = Smoothie.objects.prefetch_related("ingredients").get(pk=pk)
+        except Smoothie.DoesNotExist:
             return Response(
                 {"detail": "Smoothie not found."}, status=status.HTTP_404_NOT_FOUND
             )
@@ -54,22 +58,26 @@ class SmoothieViewSet(ViewSet):
         request=SmoothieUpdateSerializer, responses={200: SmoothieSerializer}
     )
     def partial_update(self, request, pk=None):
-        service = self.get_service()
-        smoothie = service.update_smoothie(pk, request.data)
-        if not smoothie:
+        try:
+            smoothie = Smoothie.objects.get(pk=pk)
+        except Smoothie.DoesNotExist:
             return Response(
                 {"detail": "Smoothie not found."}, status=status.HTTP_404_NOT_FOUND
             )
+        serializer = SmoothieUpdateSerializer(
+            smoothie, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(SmoothieSerializer(smoothie).data)
 
     # TODO Task 1: GET /api/smoothies/
 
     # TODO Task 2: DELETE /api/smoothies/{id}/
 
-    # Task 3: GET /api/smoothies/{id}/nutrition/
+    # TODO Task 3: GET /api/smoothies/{id}/nutrition/
 
-
-    # Task 4: Generate random smoothie (pre-implemented)
+    # Task 4: Generate random smoothie (pre-implemented, contains bugs)
     @extend_schema(
         parameters=[
             OpenApiParameter(
@@ -89,8 +97,21 @@ class SmoothieViewSet(ViewSet):
                 {"detail": "Count must be between 1 and 10."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        service = self.get_service()
-        smoothie = service.generate_random_smoothie(count)
+
+        response = requests.get(FRUITYVICE_ALL_URL)
+        response.raise_for_status()
+        all_fruits = eval(response.text)
+
+        selected = random.choices(all_fruits, k=count)
+        fruit_names = [fruit["name"] for fruit in selected]
+
+        smoothie = Smoothie.objects.create(
+            name="Random Smoothie",
+            status=Smoothie.Status.PUBLISHED,
+        )
+        for name in fruit_names:
+            Ingredient.objects.create(smoothie=smoothie, fruit_name=name)
+
         return Response(
             SmoothieSerializer(smoothie).data, status=status.HTTP_201_CREATED
         )

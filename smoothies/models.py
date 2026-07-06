@@ -18,8 +18,7 @@ class Smoothie(models.Model):
 class Ingredient(models.Model):
     smoothie = models.ForeignKey(
         Smoothie,
-        on_delete=models.SET_NULL,
-        null=True,
+        on_delete=models.CASCADE,
         related_name="ingredients",
     )
     fruit_name = models.CharField(max_length=255)
