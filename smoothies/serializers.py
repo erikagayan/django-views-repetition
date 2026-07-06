@@ -10,9 +10,11 @@ class IngredientSerializer(serializers.ModelSerializer):
 
 
 class SmoothieSerializer(serializers.ModelSerializer):
+    ingredients = IngredientSerializer(many=True, read_only=True)
+
     class Meta:
         model = Smoothie
-        fields = ["id", "name", "status"]
+        fields = ["id", "name", "status", "ingredients"]
 
 
 class SmoothieCreateSerializer(serializers.ModelSerializer):
@@ -43,4 +45,15 @@ class SmoothieUpdateSerializer(serializers.ModelSerializer):
         extra_kwargs = {"name": {"required": False}, "status": {"required": False}}
 
 
-# TODO Task 1
+class IngredientNutritionSerializer(serializers.Serializer):
+    fruit_name = serializers.CharField()
+    calories = serializers.FloatField()
+
+
+class SmoothieNutritionSerializer(serializers.Serializer):
+    smoothie_id = serializers.IntegerField()
+    name = serializers.CharField()
+    total_calories = serializers.FloatField()
+    ingredients = IngredientNutritionSerializer(many=True)
+    skipped_fruits = serializers.ListField(child=serializers.CharField())
+

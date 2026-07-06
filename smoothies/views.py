@@ -1,11 +1,18 @@
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
+from rest_framework.mixins import ListModelMixin
+from rest_framework.viewsets import GenericViewSet
+
+import smoothies
+from smoothies.models import Smoothie
 
 from .serializers import (
     SmoothieCreateSerializer,
+    SmoothieNutritionSerializer,
     SmoothieSerializer,
     SmoothieUpdateSerializer,
 )
@@ -59,7 +66,8 @@ class SmoothieViewSet(ViewSet):
 
     # TODO Task 2: DELETE /api/smoothies/{id}/
 
-    # TODO Task 3: GET /api/smoothies/{id}/nutrition/
+    # Task 3: GET /api/smoothies/{id}/nutrition/
+
 
     # Task 4: Generate random smoothie (pre-implemented)
     @extend_schema(
